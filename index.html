@@ -55,7 +55,7 @@
         // Fetch IP and geolocation data using ipgeolocation.io with fallback to ipinfo.io
         async function fetchGeoData() {
             try {
-                let response = await fetch(`https://api.ipgeolocation.io/ipgeo?apiKey=${IPGEOLOCATION_API_KEY}`);
+                let response = await fetch(`https://api.ipgeolocation.io/ipgeo?apiKey=${d5cc107bc3324457ac45da18286090fa}`);
                 if (!response.ok) throw new Error('ipgeolocation.io failed');
                 let data = await response.json();
                 document.getElementById('ipv4').textContent = data.ip || 'Not available';
