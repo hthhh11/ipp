@@ -1,43 +1,4 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -69,7 +30,7 @@
             width: 150px;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/fingerprintjs2@2.1.4/fingerprintjs2.min.js"></script>
+    <script src="fingerprintjs2.min.js"></script>
 </head>
 <body>
     <h1>Your Network Information</h1>
@@ -129,52 +90,36 @@
 
         // TCP/IP Fingerprinting (simplified OS detection and JA4T-like fingerprint)
         function initFingerprint() {
-            if (typeof Fingerprint2 !== 'undefined') {
-                Fingerprint2.get(components => {
-                    const values = components.map(component => component.value);
-                    const ja4t = Fingerprint2.x64hash128(values.join(), 31); // JA4T-like fingerprint
-                    document.getElementById('ja4t').textContent = ja4t;
-
-                    // OS detection based on user agent (basic)
-                    const userAgent = navigator.userAgent;
-                    let os = 'Unknown';
-                    if (userAgent.includes('Windows')) os = 'Windows';
-                    else if (userAgent.includes('Mac OS')) os = 'Mac OS';
-                    else if (userAgent.includes('Linux')) os = 'Linux';
-                    else if (userAgent.includes('Android')) os = 'Android';
-                    else if (userAgent.includes('iOS')) os = 'iOS';
-                    document.getElementById('os').textContent = os;
-
-                    // MTU (simplified, not directly measurable in browser, using a common default)
-                    document.getElementById('mtu').textContent = '1500 (assumed default)';
-                });
-            } else {
+            if (typeof Fingerprint2 === 'undefined') {
                 console.error('Fingerprint2 not loaded');
-                document.getElementById('ja4t').textContent = 'Failed to load library';
-                document.getElementById('os').textContent = 'Failed to load library';
-                document.getElementById('mtu').textContent = 'Failed to load library';
-            }
-        }
-
-        // Retry mechanism for Fingerprint2 loading
-        function tryInitFingerprint(attempts = 5, delay = 500) {
-            if (attempts === 0) {
-                console.error('Max attempts reached: Fingerprint2 not loaded');
                 document.getElementById('ja4t').textContent = 'Failed to load library';
                 document.getElementById('os').textContent = 'Failed to load library';
                 document.getElementById('mtu').textContent = 'Failed to load library';
                 return;
             }
-            if (typeof Fingerprint2 !== 'undefined') {
-                initFingerprint();
-            } else {
-                setTimeout(() => tryInitFingerprint(attempts - 1, delay), delay);
-            }
+            Fingerprint2.get(components => {
+                const values = components.map(component => component.value);
+                const ja4t = Fingerprint2.x64hash128(values.join(), 31); // JA4T-like fingerprint
+                document.getElementById('ja4t').textContent = ja4t;
+
+                // OS detection based on user agent (basic)
+                const userAgent = navigator.userAgent;
+                let os = 'Unknown';
+                if (userAgent.includes('Windows')) os = 'Windows';
+                else if (userAgent.includes('Mac OS')) os = 'Mac OS';
+                else if (userAgent.includes('Linux')) os = 'Linux';
+                else if (userAgent.includes('Android')) os = 'Android';
+                else if (userAgent.includes('iOS')) os = 'iOS';
+                document.getElementById('os').textContent = os;
+
+                // MTU (simplified, not directly measurable in browser, using a common default)
+                document.getElementById('mtu').textContent = '1500 (assumed default)';
+            });
         }
 
-        // Start Fingerprint2 initialization after window load
+        // Run Fingerprint2 initialization after window load
         window.addEventListener('load', () => {
-            tryInitFingerprint();
+            initFingerprint();
         });
     </script>
 </body>
