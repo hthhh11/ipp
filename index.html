@@ -1,0 +1,181 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Information</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        #info {
+            background-color: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        #info div {
+            margin-bottom: 10px;
+        }
+        #info strong {
+            display: inline-block;
+            width: 150px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/fingerprintjs2@2.1.4/fingerprintjs2.min.js"></script>
+</head>
+<body>
+    <h1>Your Network Information</h1>
+    <div id="info">
+        <div><strong>IPv4:</strong> <span id="ipv4">Loading...</span></div>
+        <div><strong>IPv6:</strong> <span id="ipv6">Loading...</span></div>
+        <div><strong>City:</strong> <span id="city">Loading...</span></div>
+        <div><strong>Country:</strong> <span id="country">Loading...</span></div>
+        <div><strong>ISP:</strong> <span id="isp">Loading...</span></div>
+        <div><strong>ISP ASN:</strong> <span id="asn">Loading...</span></div>
+        <div><strong>WebRTC:</strong> <span id="webrtc">Loading...</span></div>
+        <div><strong>DNS:</strong> <span id="dns">Loading...</span></div>
+        <div><strong>OS:</strong> <span id="os">Loading...</span></div>
+        <div><strong>MTU:</strong> <span id="mtu">Loading...</span></div>
+        <div><strong>JA4T:</strong> <span id="ja4t">Loading...</span></div>
+    </div>
+
+    <script>
+        // Fetch IP and geolocation data using ipapi.co
+        fetch('https://ipapi.co/json/')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('ipv4').textContent = data.ip || 'Not available';
+                document.getElementById('ipv6').textContent = data.ipv6 || 'Not available';
+                document.getElementById('city').textContent = data.city || 'Not available';
+                document.getElementById('country').textContent = data.country_name || 'Not available';
+                document.getElementById('isp').textContent = data.org || 'Not available';
+                document.getElementById('asn').textContent = data.asn || 'Not available';
+            })
+            .catch(error => {
+                console.error('Error fetching IP data:', error);
+                document.querySelectorAll('#ipv4, #ipv6, #city, #country, #isp, #asn')
+                    .forEach(el => el.textContent = 'Error');
+            });
+
+        // Check WebRTC status
+        function checkWebRTC() {
+            if (window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection) {
+                document.getElementById('webrtc').textContent = 'Enabled';
+            } else {
+                document.getElementById('webrtc').textContent = 'Disabled';
+            }
+        }
+        checkWebRTC();
+
+        // Fetch DNS information (simplified, using Cloudflare's 1.1.1.1 DNS check)
+        fetch('https://1.1.1.1/dns-query?name=example.com&type=A', {
+            headers: { 'Accept': 'application/dns-json' }
+        })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('dns').textContent = data.Status === 0 ? '1.1.1.1 (Cloudflare)' : 'Not resolved';
+            })
+            .catch(() => {
+                document.getElementById('dns').textContent = 'Not available';
+            });
+
+        // TCP/IP Fingerprinting (simplified OS detection and JA4T-like fingerprint)
+        function initFingerprint() {
+            if (typeof Fingerprint2 !== 'undefined') {
+                Fingerprint2.get(components => {
+                    const values = components.map(component => component.value);
+                    const ja4t = Fingerprint2.x64hash128(values.join(), 31); // JA4T-like fingerprint
+                    document.getElementById('ja4t').textContent = ja4t;
+
+                    // OS detection based on user agent (basic)
+                    const userAgent = navigator.userAgent;
+                    let os = 'Unknown';
+                    if (userAgent.includes('Windows')) os = 'Windows';
+                    else if (userAgent.includes('Mac OS')) os = 'Mac OS';
+                    else if (userAgent.includes('Linux')) os = 'Linux';
+                    else if (userAgent.includes('Android')) os = 'Android';
+                    else if (userAgent.includes('iOS')) os = 'iOS';
+                    document.getElementById('os').textContent = os;
+
+                    // MTU (simplified, not directly measurable in browser, using a common default)
+                    document.getElementById('mtu').textContent = '1500 (assumed default)';
+                });
+            } else {
+                console.error('Fingerprint2 not loaded');
+                document.getElementById('ja4t').textContent = 'Failed to load library';
+                document.getElementById('os').textContent = 'Failed to load library';
+                document.getElementById('mtu').textContent = 'Failed to load library';
+            }
+        }
+
+        // Retry mechanism for Fingerprint2 loading
+        function tryInitFingerprint(attempts = 5, delay = 500) {
+            if (attempts === 0) {
+                console.error('Max attempts reached: Fingerprint2 not loaded');
+                document.getElementById('ja4t').textContent = 'Failed to load library';
+                document.getElementById('os').textContent = 'Failed to load library';
+                document.getElementById('mtu').textContent = 'Failed to load library';
+                return;
+            }
+            if (typeof Fingerprint2 !== 'undefined') {
+                initFingerprint();
+            } else {
+                setTimeout(() => tryInitFingerprint(attempts - 1, delay), delay);
+            }
+        }
+
+        // Start Fingerprint2 initialization after window load
+        window.addEventListener('load', () => {
+            tryInitFingerprint();
+        });
+    </script>
+</body>
+</html>
